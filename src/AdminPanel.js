@@ -10,11 +10,13 @@ function AdminPanel() {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [image, setImage] = useState('');
+  const [category, setCategory] = useState('');
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editImage, setEditImage] = useState('');
+  const [editCategory, setEditCategory] = useState('');
   const [editUploading, setEditUploading] = useState(false);
   const navigate = useNavigate();
 
@@ -62,12 +64,13 @@ function AdminPanel() {
 
   const addProduct = (e) => {
     e.preventDefault();
-    axios.post(`${API_BASE}/api/products`, { title, price, image }, authHeader())
+    axios.post(`${API_BASE}/api/products`, { title, price, image, category }, authHeader())
       .then(() => {
         fetchProducts();
         setTitle('');
         setPrice('');
         setImage('');
+        setCategory('');
       })
       .catch(err => {
         console.log(err);
@@ -93,6 +96,7 @@ function AdminPanel() {
     setEditTitle(product.title);
     setEditPrice(product.price);
     setEditImage(product.image || '');
+    setEditCategory(product.category || '');
   };
 
   const cancelEditing = () => {
@@ -100,13 +104,15 @@ function AdminPanel() {
     setEditTitle('');
     setEditPrice('');
     setEditImage('');
+    setEditCategory('');
   };
 
   const updateProduct = (id) => {
     axios.put(`${API_BASE}/api/products/${id}`, {
       title: editTitle,
       price: editPrice,
-      image: editImage
+      image: editImage,
+      category: editCategory
     }, authHeader())
       .then(() => {
         fetchProducts();
@@ -150,6 +156,12 @@ function AdminPanel() {
               onChange={(e) => setPrice(e.target.value)}
               required
             />
+            <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+              <option value="">Select Category</option>
+              <option value="Men">Men</option>
+              <option value="Women">Women</option>
+              <option value="Kids">Kids</option>
+            </select>
             <input
               type="file"
               accept="image/*"
@@ -187,6 +199,16 @@ function AdminPanel() {
                       value={editPrice}
                       onChange={(e) => setEditPrice(e.target.value)}
                     />
+                    <select
+                      className="edit-input"
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                    >
+                      <option value="">Select Category</option>
+                      <option value="Men">Men</option>
+                      <option value="Women">Women</option>
+                      <option value="Kids">Kids</option>
+                    </select>
                     <input
                       type="file"
                       accept="image/*"
@@ -214,6 +236,9 @@ function AdminPanel() {
                     )}
                     <div className="roster-item__info">
                       <div className="roster-item__title">{product.title}</div>
+                      {product.category && (
+                        <div style={{ fontSize: '0.75rem', color: '#888' }}>{product.category}</div>
+                      )}
                     </div>
                     <div className="price-chip">₹{Number(product.price).toFixed(2)}</div>
                     <div className="roster-item__actions">
