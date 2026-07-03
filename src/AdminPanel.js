@@ -3,47 +3,71 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './App.css';
 
+const API_BASE = 'https://sporty-outfitters-backend.onrender.com';
+
 function AdminPanel() {
   const [products, setProducts] = useState([]);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [image, setImage] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [editUploading, setEditUploading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  // Builds the "Authorization: Bearer <token>" header using the saved login token.
-  // Every add/edit/delete request needs this now that those routes are protected.
   const authHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
   });
 
-  // If the backend rejects a request as unauthorized (token missing/expired),
-  // send the admin back to the login screen.
   const handleSessionExpired = () => {
     localStorage.removeItem('adminToken');
     navigate('/login');
   };
 
   const fetchProducts = () => {
-    // GET stays public — no auth header needed here, since your storefront
-    // and admin panel both just need to read the product list.
-    axios.get('https://sporty-outfitters-backend.onrender.com/api/products')
+    axios.get(`${API_BASE}/api/products`)
       .then(res => setProducts(res.data))
       .catch(err => console.log(err));
   };
 
+  const handleImageSelect = async (e, isEdit) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    isEdit ? setEditUploading(true) : setUploading(true);
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/upload`, formData, authHeader());
+      isEdit ? setEditImage(res.data.url) : setImage(res.data.url);
+    } catch (err) {
+      console.log(err);
+      alert('Image upload failed. Please try again.');
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        handleSessionExpired();
+      }
+    } finally {
+      isEdit ? setEditUploading(false) : setUploading(false);
+    }
+  };
+
   const addProduct = (e) => {
     e.preventDefault();
-    axios.post('https://sporty-outfitters-backend.onrender.com/api/products', { title, price }, authHeader())
+    axios.post(`${API_BASE}/api/products`, { title, price, image }, authHeader())
       .then(() => {
         fetchProducts();
         setTitle('');
         setPrice('');
+        setImage('');
       })
       .catch(err => {
         console.log(err);
@@ -54,7 +78,7 @@ function AdminPanel() {
   };
 
   const deleteProduct = (id) => {
-    axios.delete(`https://sporty-outfitters-backend.onrender.com/api/products/${id}`, authHeader())
+    axios.delete(`${API_BASE}/api/products/${id}`, authHeader())
       .then(() => fetchProducts())
       .catch(err => {
         console.log(err);
@@ -68,18 +92,21 @@ function AdminPanel() {
     setEditingId(product._id);
     setEditTitle(product.title);
     setEditPrice(product.price);
+    setEditImage(product.image || '');
   };
 
   const cancelEditing = () => {
     setEditingId(null);
     setEditTitle('');
     setEditPrice('');
+    setEditImage('');
   };
 
   const updateProduct = (id) => {
-    axios.put(`https://sporty-outfitters-backend.onrender.com/api/products/${id}`, {
+    axios.put(`${API_BASE}/api/products/${id}`, {
       title: editTitle,
-      price: editPrice
+      price: editPrice,
+      image: editImage
     }, authHeader())
       .then(() => {
         fetchProducts();
@@ -123,7 +150,18 @@ function AdminPanel() {
               onChange={(e) => setPrice(e.target.value)}
               required
             />
-            <button className="btn btn-primary" type="submit">Add Product</button>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageSelect(e, false)}
+            />
+            {uploading && <span>Uploading...</span>}
+            {image && !uploading && (
+              <img src={image} alt="Preview" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} />
+            )}
+            <button className="btn btn-primary" type="submit" disabled={uploading}>
+              {uploading ? 'Uploading image...' : 'Add Product'}
+            </button>
           </form>
         </div>
         <div className="roster-label">Current Roster ({products.length})</div>
@@ -149,13 +187,31 @@ function AdminPanel() {
                       value={editPrice}
                       onChange={(e) => setEditPrice(e.target.value)}
                     />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageSelect(e, true)}
+                    />
+                    {editUploading && <span>Uploading...</span>}
+                    {editImage && !editUploading && (
+                      <img src={editImage} alt="Preview" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} />
+                    )}
                     <div className="roster-item__actions">
-                      <button className="btn btn-save" onClick={() => updateProduct(product._id)}>Save</button>
+                      <button className="btn btn-save" onClick={() => updateProduct(product._id)} disabled={editUploading}>
+                        {editUploading ? 'Uploading...' : 'Save'}
+                      </button>
                       <button className="btn btn-cancel" onClick={cancelEditing}>Cancel</button>
                     </div>
                   </>
                 ) : (
                   <>
+                    {product.image && (
+                      <img
+                        src={product.image}
+                        alt={product.title}
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, marginRight: '0.75rem' }}
+                      />
+                    )}
                     <div className="roster-item__info">
                       <div className="roster-item__title">{product.title}</div>
                     </div>
